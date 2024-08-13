@@ -6,6 +6,9 @@ module U = FStar.UInt
 open Trie
 open TrieInv
 open FStar.Classical.Sugar
+open FStar.Tactics.Typeclasses
+//open Container
+
 
 let models
   (xs : trie0 alphabet_size)
@@ -13,27 +16,27 @@ let models
   : GTot prop
   =
   forall (x: list b_nat).
-         mem xs x <==> TSet.mem x ss
+         mem x xs <==> TSet.mem x ss
 
 let empty_ok_lem (_:unit) : Lemma (models empty TSet.empty)
   = ()
 
 let rec is_empty_lem (t:trie{N? t})
-  : squash (exists (l:list b_nat) . mem t l) 
+  : squash (exists (l:list b_nat) . mem l t) 
   =
   match t with
-  | N (a,true) -> assert(mem t [])
+  | N (a,true) -> assert(mem [] t)
   | N (a,false) ->
-    let pf : squash (exists (i:nat{i < U32.v alphabet_size}).
+    let pf : squash (exists (i:b_nat).
                              N? (index a (U32.uint_to_t i))) = ()
     in exists_elim
-       #(i:nat{i < U32.v alphabet_size})
+       #b_nat
        #(fun i -> N? (index a (U32.uint_to_t i)))
-       #(exists (l:list b_nat) . mem t l)
+       #(exists (l:list b_nat) . mem l t)
        pf
        (fun i pfx -> (
                       is_empty_lem (index a (U32.uint_to_t i));
-                      assert(exists (l:list b_nat). mem t (i::l))
+                      assert(exists (l:list b_nat). mem (i::l) t)
                       )
        )
 
@@ -45,15 +48,15 @@ let is_empty_ok (#a:eqtype) (xs:trie)
   | N (_,_) -> is_empty_lem xs
 
 let rec mem_insert (t:trie) (l: list b_nat)
-  : Lemma (mem (insert l t) l)
+  : Lemma (mem l (insert l t))
   =
   match (t,l) with
   | (_,[]) -> ()
   | (L, x::xs) -> mem_insert t xs
   | (N (a,is_t), x::xs) -> mem_insert (index a (U32.uint_to_t x)) xs
 
-let rec ins_ok_lem1 (t:trie) (l: list b_nat) (l':(list b_nat){mem t l'})
-  : Tot (squash (mem (insert l t) l')) (decreases l')
+let rec ins_ok_lem1 (t:trie) (l: list b_nat) (l':(list b_nat){mem l' t})
+  : Tot (squash (mem l' (insert l t))) (decreases l')
   =
   match (t,l,l') with
   | (_,_,[]) -> ()
@@ -68,8 +71,8 @@ let rec ins_ok_lem1 (t:trie) (l: list b_nat) (l':(list b_nat){mem t l'})
          )
     else ()
 
-let rec ins_ok_lem2 (t:trie) (l: list b_nat) (l':(list b_nat){not (mem t l') /\ (l <> l')})
-  : Tot (squash (not (mem (insert l t) l'))) (decreases l')
+let rec ins_ok_lem2 (t:trie) (l: list b_nat) (l':(list b_nat){not (mem l' t) /\ (l <> l')})
+  : Tot (squash (not (mem l' (insert l t)))) (decreases l')
   =
   match (t,l,l') with
   | (_,_,[]) -> ()
@@ -89,16 +92,16 @@ let ins_ok_lem (x:list b_nat) (xs:trie) (ss : TSet.set (list b_nat))
   =
   mem_insert xs x;
 
-  forall_intro (l:(list b_nat){mem xs l})
-               (fun l' -> mem (insert x xs) l')
+  forall_intro (l:(list b_nat){mem l xs})
+               (fun l' -> mem l' (insert x xs))
                (ins_ok_lem1 xs x);
 
-  forall_intro (l:(list b_nat){not (mem xs l) /\ (l <> x)})
-               (fun l' -> not (mem (insert x xs) l'))
+  forall_intro (l:(list b_nat){not (mem l xs) /\ (l <> x)})
+               (fun l' -> not (mem l' (insert x xs)))
                (ins_ok_lem2 xs x)
 
 let rec mem_delete (t:trie) (l:list b_nat)
-  : Lemma (not (mem (delete l t) l))
+  : Lemma (not (mem l (delete l t)))
   =
   match (t,l) with
   | (L,_) -> ()
@@ -107,12 +110,12 @@ let rec mem_delete (t:trie) (l:list b_nat)
       match index a (U32.uint_to_t x) with
       | L -> ()
       | t' ->
-        match delete0 t' xs with
+        match delete0 xs t' with
         | L -> ()
         | t'' -> mem_delete t' xs
 
-let rec del_ok_lem1 (t:trie) (l:list b_nat) (l':(list b_nat){not (mem t l')})
-  : Tot (squash (not (mem (delete l t) l')))
+let rec del_ok_lem1 (t:trie) (l:list b_nat) (l':(list b_nat){not (mem l' t)})
+  : Tot (squash (not (mem l' (delete l t))))
   =
   match (t,l,l') with
   | (L,_,_) -> ()
@@ -124,7 +127,7 @@ let rec del_ok_lem1 (t:trie) (l:list b_nat) (l':(list b_nat){not (mem t l')})
           match index a (U32.uint_to_t x) with
           | L -> ()
           | t' ->
-            match delete0 t' xs with
+            match delete0 xs t' with
             | L -> ()
             | t'' -> del_ok_lem1 t' xs ys
          )
@@ -132,13 +135,13 @@ let rec del_ok_lem1 (t:trie) (l:list b_nat) (l':(list b_nat){not (mem t l')})
 
 let del_ok_lem2' (t:trie{N? t}) (l:(list b_nat){Cons? l})
   : Lemma (requires (let N (a,_) = t in is_empty a))
-          (ensures not (mem t l))
+          (ensures not (mem l t))
   =
   match (t,l) with
-  | (N (a,_),_) -> del_lem_back_neg a
+  | (N (a,_),_) -> del_lem_back a
 
-let rec del_ok_lem2 (t:trie) (l:list b_nat) (l':(list b_nat){(mem t l') /\ (l <> l')})
-  : Tot (squash (mem (delete l t) l'))
+let rec del_ok_lem2 (t:trie) (l:list b_nat) (l':(list b_nat){(mem l' t) /\ (l <> l')})
+  : Tot (squash (mem l' (delete l t)))
   =
   match (t,l,l') with
   | (L,_,_) -> ()
@@ -171,11 +174,39 @@ let del_ok_lem (x:list b_nat) (t:trie) (ss: TSet.set (list b_nat))
   mem_delete t x;
 
   //assume(forall (l:(list b_nat){not (mem t l)}). not (mem (delete x t) l));
-  forall_intro (l:(list b_nat){not (mem t l)})
-               (fun l' -> not (mem (delete x t) l'))
+  forall_intro (l:(list b_nat){not (mem l t)})
+               (fun l' -> not (mem l' (delete x t)))
                (del_ok_lem1 t x);
   
   //assume(forall (l:(list b_nat){(mem t l) /\ (l <> x)}). (mem (delete x t) l));
-  forall_intro (l:(list b_nat){(mem t l) /\ (l <> x)})
-               (fun l' -> mem (delete x t) l')
+  forall_intro (l:(list b_nat){(mem l t) /\ (l <> x)})
+               (fun l' -> mem l' (delete x t))
                (del_ok_lem2 t x)
+
+(*
+instance tries_are_containers0
+  : container0 (list b_nat) trie = {
+    empty = L;
+    is_empty = L?;
+
+    mem = mem;
+    ins = insert;
+    del = delete;
+  }
+
+instance tries_are_container_laws
+  : container_laws (list b_nat) trie tries_are_container0 = {
+    models = models;
+    empty_ok = empty_ok_lem;
+    is_empty_ok = is_empty_ok;
+    mem_ok = (fun _ _ _ -> ());
+    ins_ok = ins_ok_lem;
+    del_ok = del_ok_lem;
+}
+
+instance tries_are_containers
+  : container (list b_nat) trie = {
+    ops = tries_are_container0;
+    laws = tries_are_container_laws;
+  }
+*)
