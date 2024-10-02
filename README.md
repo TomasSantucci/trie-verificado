@@ -25,18 +25,18 @@ estructura.
 Se define una función para chequear si se cumplen estos invariantes:
 
 ```
-let rec is_trie (t:trie0 alphabet_size) : Tot prop
+let rec is_trie (#alph_size: u32pos) (t: trie0 alph_size) : Tot prop
   =
   match t with
   | L -> true
   | N (a,true) ->
-    (forall (i:b_nat).
+    (forall (i:b_nat alph_size).
       is_trie (index a (U32.uint_to_t i)))
   | N (a,false) ->
-    (forall (i:b_nat).
+    (forall (i:b_nat alph_size).
       is_trie (index a (U32.uint_to_t i)))
     /\
-    (exists (i:b_nat).
+    (exists (i:b_nat alph_size).
         N? (index a (U32.uint_to_t i)))
 ```
 
@@ -47,7 +47,6 @@ sea otro nodo (o sea no puede haber un nodo que no sea hoja y todos sus hijos se
 ### Implementacion
 
 Algunas consideraciones sobre la implementación:
-- Se puede configurar el tamaño del alfabeto cambiando la variable global `alphabet_size`.
 - Los elementos de las listas que se guardan son `b_nat`s. Es decir naturales 'boundeados' para
 que se puedan transformar en unsigned de 32 bits.
 - Se incluye el lema `index_dec` que se asume como válido, para poder probar lemas que hagan recursión

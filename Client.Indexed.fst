@@ -3,14 +3,17 @@ module Client.Indexed
 open Container.Indexed
 open TrieDataType
 open Trie
+open FStar.UInt32
 
-let l1 : list b_nat = [1]
-let l2 : list b_nat = [1;2]
-let l3 : list b_nat = [1;2;3]
-let l4 : list b_nat = [4]
+let alph_size: u32pos = uint_to_t 26
 
-let test #s {| icontainer (list b_nat) s |} () =
-  let e : s _ = empty in
+let l1: list (b_nat alph_size) = [1]
+let l2: list (b_nat alph_size) = [1;2]
+let l3: list (b_nat alph_size) = [1;2;3]
+let l4: list (b_nat alph_size) = [4]
+
+let test #s {| icontainer (list (b_nat alph_size)) s |} () =
+  let e: s _ = empty in
   let e = ins l1 e in
   let e = ins l2 e in
   let e = ins l3 e in
@@ -23,5 +26,5 @@ let test #s {| icontainer (list b_nat) s |} () =
   ()
 
 let test_list () =
-  test #_ #(icontainer_from_container (list b_nat) trie
-               FStar.Tactics.Typeclasses.solve) ()
+  test #_ #(icontainer_from_container (list (b_nat alph_size)) (trie alph_size)
+            FStar.Tactics.Typeclasses.solve) ()
