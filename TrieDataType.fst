@@ -5,7 +5,7 @@ module U32 = FStar.UInt32
 module U = FStar.UInt
 
 // b_nat represents a bounded natural that can fit in 32 bits
-type b_nat (alph_size: U32.t) = x: nat{x < U32.v alph_size /\ U.size x 32}
+type b_nat (alph_size: U32.t) = x: nat{x < U32.v alph_size}
 
 type u32pos = (n: U32.t{U32.v n > 0})
 
