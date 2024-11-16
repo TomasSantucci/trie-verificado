@@ -175,7 +175,7 @@ let empty_ok_lem (#alph_size: u32pos) (_:unit) : Lemma (models (empty alph_size)
   = ()
 
 let rec is_empty_lem (#alph_size: u32pos) (t: trie alph_size{N? t})
-  : squash (exists (l: list (b_nat alph_size)) . mem l t)
+  : Lemma (exists (l: list (b_nat alph_size)) . mem l t)
   =
   match t with
   | N (a,true) -> assert(mem [] t)
@@ -213,7 +213,7 @@ let rec ins_ok_lem1
   (t: trie alph_size)
   (l: list (b_nat alph_size))
   (l': (list (b_nat alph_size)){mem l' t})
-  : Tot (squash (mem l' (insert l t))) (decreases l')
+  : Lemma (ensures (mem l' (insert l t))) (decreases l')
   =
   match (t,l,l') with
   | (_,_,[]) -> ()
@@ -233,7 +233,7 @@ let rec ins_ok_lem2
   (t: trie alph_size)
   (l: list (b_nat alph_size))
   (l': (list (b_nat alph_size)){not (mem l' t) /\ (l <> l')})
-  : Tot (squash (not (mem l' (insert l t)))) (decreases l')
+  : Lemma (ensures (not (mem l' (insert l t)))) (decreases l')
   =
   match (t,l,l') with
   | (_,_,[]) -> ()
@@ -259,11 +259,11 @@ let ins_ok_lem
 
   ClassicalSugar.forall_intro (l: (list (b_nat alph_size)){mem l xs})
                (fun l' -> mem l' (insert x xs))
-               (ins_ok_lem1 xs x);
+               (Classical.lemma_to_squash_gtot (ins_ok_lem1 xs x));
 
   ClassicalSugar.forall_intro (l: (list (b_nat alph_size)){not (mem l xs) /\ (l <> x)})
                (fun l' -> not (mem l' (insert x xs)))
-               (ins_ok_lem2 xs x)
+               (Classical.lemma_to_squash_gtot (ins_ok_lem2 xs x))
 
 let rec mem_delete (#alph_size: u32pos) (t: trie alph_size) (l: list (b_nat alph_size))
   : Lemma (not (mem l (delete l t)))
@@ -284,7 +284,7 @@ let rec del_ok_lem1
   (t: trie alph_size)
   (l: list (b_nat alph_size))
   (l': (list (b_nat alph_size)){not (mem l' t)})
-  : Tot (squash (not (mem l' (delete l t))))
+  : Lemma (not (mem l' (delete l t)))
   =
   match (t,l,l') with
   | (L,_,_) -> ()
@@ -314,7 +314,7 @@ let rec del_ok_lem2
   (t: trie alph_size)
   (l: list (b_nat alph_size))
   (l': (list (b_nat alph_size)){(mem l' t) /\ (l <> l')})
-  : Tot (squash (mem l' (delete l t)))
+  : Lemma (mem l' (delete l t))
   =
   match (t,l,l') with
   | (L,_,_) -> ()
@@ -353,12 +353,12 @@ let del_ok_lem
   //assume(forall (l: (list (b_nat alph_size)){not (mem t l)}). not (mem (delete x t) l));
   ClassicalSugar.forall_intro (l: (list (b_nat alph_size)){not (mem l t)})
                (fun l' -> not (mem l' (delete x t)))
-               (del_ok_lem1 t x);
+               (Classical.lemma_to_squash_gtot (del_ok_lem1 t x));
   
   //assume(forall (l: (list (b_nat alph_size)){(mem t l) /\ (l <> x)}). (mem (delete x t) l));
   ClassicalSugar.forall_intro (l: (list (b_nat alph_size)){(mem l t) /\ (l <> x)})
                (fun l' -> mem l' (delete x t))
-               (del_ok_lem2 t x)
+               (Classical.lemma_to_squash_gtot (del_ok_lem2 t x))
 
 instance tries_are_containers0 (#alph_size: u32pos)
   : container0 (list (b_nat alph_size)) (trie alph_size) = {
