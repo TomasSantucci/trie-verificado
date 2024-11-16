@@ -4,7 +4,8 @@ open FStar.Vector
 module U32 = FStar.UInt32
 module U = FStar.UInt
 open TrieDataType
-open FStar.Classical.Sugar
+module ClassicalSugar = FStar.Classical.Sugar
+module Classical = FStar.Classical
 open Container
 
 type trie_array (n: u32pos) = raw (trie0 n) n
@@ -91,39 +92,27 @@ let insert (#alph_size: u32pos) (x:list (b_nat alph_size)) (t:trie alph_size)
 
 // -- exists child node ==> not (is_empty a) --
 
-let rec del_lem_back2 (alph_size: u32pos) (a: trie_array alph_size)
+let rec del_lem_back1 (alph_size: u32pos) (a: trie_array alph_size)
                       (i': b_nat alph_size)
-                      (pf: squash (not (is_empty' #alph_size a i')))
-  : Tot (squash (not (is_empty a))) (decreases (U32.v alph_size - i'))
+  : Lemma (requires (not (is_empty' a i'))) (ensures (not (is_empty a))) (decreases (U32.v alph_size - i'))
   =
   if i' = U32.v alph_size - 1
-  then pf
-  else let pf' : squash (not (is_empty' a (i'+1))) = () in
-       del_lem_back2 alph_size a (i'+1) pf'
+  then ()
+  else del_lem_back1 alph_size a (i'+1)
 
-let del_lem_back1 (alph_size: u32pos) (a: trie_array alph_size)
+let del_lem_back (alph_size: u32pos) (a: trie_array alph_size)
   : Lemma (requires (exists (i: b_nat alph_size).
                      N? (index a (U32.uint_to_t i))))
           (ensures not (is_empty a))
   =
   let pf : squash (exists (i': b_nat alph_size). not (is_empty' a i')) = () in
-  exists_elim
+  ClassicalSugar.exists_elim
   #_
   #(fun i' -> not (is_empty' a i'))
   #(not (is_empty a))
   pf
-  (del_lem_back2 alph_size a)
-
-let del_lem_back (alph_size: u32pos) (a: trie_array alph_size)
-  : Lemma ((exists (i: b_nat alph_size).
-                    N? (index a (U32.uint_to_t i)))
-           ==>
-          (not (is_empty a)))
-  =
-  implies_intro (exists (i: b_nat alph_size).
-                         N? (index a (U32.uint_to_t i)))
-                (fun pfp -> (not (is_empty a)))
-                (fun pfp -> del_lem_back1 alph_size a)
+  (fun (i: b_nat alph_size) _ ->
+    Classical.lemma_to_squash_gtot (Classical.move_requires (del_lem_back1 alph_size a)) i)
 
 // -- exists child node <== not (is_empty a) --
 
@@ -193,7 +182,7 @@ let rec is_empty_lem (#alph_size: u32pos) (t: trie alph_size{N? t})
   | N (a,false) ->
     let pf: squash (exists (i: b_nat alph_size).
                              N? (index a (U32.uint_to_t i))) = ()
-    in exists_elim
+    in ClassicalSugar.exists_elim
        #(b_nat alph_size)
        #(fun i -> N? (index a (U32.uint_to_t i)))
        #(exists (l: list (b_nat alph_size)) . mem l t)
@@ -268,11 +257,11 @@ let ins_ok_lem
   =
   mem_insert xs x;
 
-  forall_intro (l: (list (b_nat alph_size)){mem l xs})
+  ClassicalSugar.forall_intro (l: (list (b_nat alph_size)){mem l xs})
                (fun l' -> mem l' (insert x xs))
                (ins_ok_lem1 xs x);
 
-  forall_intro (l: (list (b_nat alph_size)){not (mem l xs) /\ (l <> x)})
+  ClassicalSugar.forall_intro (l: (list (b_nat alph_size)){not (mem l xs) /\ (l <> x)})
                (fun l' -> not (mem l' (insert x xs)))
                (ins_ok_lem2 xs x)
 
@@ -318,7 +307,7 @@ let del_ok_lem2' (#alph_size: u32pos) (t: trie alph_size{N? t}) (l: (list (b_nat
           (ensures not (mem l t))
   =
   match (t,l) with
-  | (N (a,_),_) -> del_lem_back alph_size a
+  | (N (a,_),_) -> Classical.move_requires (del_lem_back alph_size) a
 
 let rec del_ok_lem2
   (#alph_size: u32pos)
@@ -346,7 +335,7 @@ let rec del_ok_lem2
     else (
           match index a (U32.uint_to_t x) with
           | L -> ()
-          | t' -> del_lem_back alph_size (update a (U32.uint_to_t x) L)
+          | t' -> Classical.move_requires (del_lem_back alph_size) (update a (U32.uint_to_t x) L)
          )
 
 let del_ok_lem
@@ -362,12 +351,12 @@ let del_ok_lem
   mem_delete t x;
 
   //assume(forall (l: (list (b_nat alph_size)){not (mem t l)}). not (mem (delete x t) l));
-  forall_intro (l: (list (b_nat alph_size)){not (mem l t)})
+  ClassicalSugar.forall_intro (l: (list (b_nat alph_size)){not (mem l t)})
                (fun l' -> not (mem l' (delete x t)))
                (del_ok_lem1 t x);
   
   //assume(forall (l: (list (b_nat alph_size)){(mem t l) /\ (l <> x)}). (mem (delete x t) l));
-  forall_intro (l: (list (b_nat alph_size)){(mem l t) /\ (l <> x)})
+  ClassicalSugar.forall_intro (l: (list (b_nat alph_size)){(mem l t) /\ (l <> x)})
                (fun l' -> mem l' (delete x t))
                (del_ok_lem2 t x)
 
